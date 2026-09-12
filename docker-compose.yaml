@@ -1,0 +1,19 @@
+services:
+  iris:
+    image: intersystems/irishealth-community:2026.1
+    container_name: piqitt-iris
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1972:1972"
+      - "127.0.0.1:52773:52773"
+    environment:
+      ISC_DATA_DIRECTORY: /durable/iris
+      TZ: America/New_York
+    volumes:
+      - iris_durable:/durable
+      - ./exchange:/exchange
+    cpus: 8.0
+
+volumes:
+  iris_durable:
+    name: piqitt_iris_durable
