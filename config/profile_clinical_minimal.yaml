@@ -1,1 +1,62 @@
 profile:
+  name: Clinical-Minimal
+  steps:
+    - id: PAT-1
+      resource: Patient
+      path: birthDate
+      sam: Attr_IsDate
+      params: {}
+      effect: Scoring
+      weight: 1.0
+      critical: true
+
+    - id: OBS-1
+      resource: Observation
+      path: code
+      sam: Concept_HasCode
+      params: {}
+      effect: Scoring
+      critical: true
+
+    - id: OBS-2
+      resource: Observation
+      path: code
+      sam: Concept_IsValidMember
+      params:
+        system: LOINC
+      effect: Scoring
+
+    - id: OBS-3
+      resource: Observation
+      path: value[x]
+      sam: ObservationValue_IsNumeric
+      params: {}
+      effect: Informational
+
+    - id: OBS-4
+      resource: Observation
+      path: referenceRange*
+      sam: RangeValue_IsComplete
+      params: {}
+      effect: Informational
+
+    - id: OBS-5
+      resource: Observation
+      path: code
+      sam: LabResult_ValueIsPlausible
+      params: {}
+      effect: Informational
+
+    - id: OBS-U1
+      resource: Observation
+      path: code
+      sam: Observation_UnitAllowed
+      params: {}
+      effect: Scoring
+
+    - id: OBS-V1
+      resource: Observation
+      path: code
+      sam: Observation_ValueWithinRange
+      params: {}
+      effect: Scoring
