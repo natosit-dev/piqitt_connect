@@ -123,10 +123,12 @@ ClassMethod PostBundle() As %Status
         If '$IsObject(codeObj) Continue
         If '..IsPIQIObservation(codeObj) Continue
 
+        // PIQI scores are stored and returned on the same 0-100 percentage scale
+        // used by PIQIEvaluator and the FHIR Observation valueQuantity.
         Set vqMain = r.%Get("valueQuantity")
         If $IsObject(vqMain) {
           Set pct = ..GetValueQuantityValue(vqMain)
-          If pct'="" Set piqiIndex = (pct/100)
+          If pct'="" Set piqiIndex = pct
         }
 
         Set comps = r.%Get("component")
@@ -155,7 +157,7 @@ ClassMethod PostBundle() As %Status
               Set vqW = c.%Get("valueQuantity")
               If $IsObject(vqW) {
                 Set pctW = ..GetValueQuantityValue(vqW)
-                If pctW'="" Set piqiWeighted = (pctW/100)
+                If pctW'="" Set piqiWeighted = pctW
               }
               Continue
             }
