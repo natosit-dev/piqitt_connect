@@ -8,29 +8,31 @@ from typing import Any, Dict, Optional, Tuple
 import requests
 import streamlit as st
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
-st.set_page_config(page_title="PIQITT Connect", layout="wide")
-st.title("PIQITT Connect: HL7 -> FHIR -> PIQI -> IRIS")
+st.title("PIQITT Connect: IRIS Integration Lab")
+st.caption("Generate synthetic HL7, convert to FHIR, score with PIQI, annotate the Bundle, and store/browse it through the IRIS REST service.")
 
-# ----------------------------
-# Sidebar: IRIS connection
-# ----------------------------
 with st.sidebar:
     st.header("IRIS API")
-    base_url = st.text_input("Base URL", value="http://localhost:52773/csp/piqitt/api")
+    base_url = st.text_input(
+        "Base URL", value="http://localhost:52773/csp/piqitt/api"
+    )
     user = st.text_input("Username", value="_SYSTEM")
     password = st.text_input("Password", value="", type="password")
-    timeout_s = st.number_input("Timeout (sec)", min_value=5, max_value=120, value=30)
+    timeout_s = st.number_input(
+        "Timeout (sec)", min_value=5, max_value=120, value=30
+    )
 
     st.divider()
     st.header("Local Paths")
     out_dir = st.text_input("HL7 out folder", value=str(REPO_ROOT / "out"))
-    config_dir = st.text_input("Config folder", value=str(REPO_ROOT / "config"))
 
     st.divider()
     st.header("Generation")
-    n_messages = st.number_input("HL7 encounters", min_value=1, max_value=500, value=10)
+    n_messages = st.number_input(
+        "HL7 encounters", min_value=1, max_value=500, value=10
+    )
     per_encounter = st.checkbox("Per-encounter files", value=True)
 
 
@@ -58,10 +60,14 @@ def api_get(path: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         return None, str(e)
 
 
-def api_post(path: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+def api_post(
+    path: str, payload: Optional[Dict[str, Any]] = None
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     try:
         url = base_url.rstrip("/") + "/" + path.lstrip("/")
-        r = requests.post(url, json=payload, auth=(user, password), timeout=timeout_s)
+        r = requests.post(
+            url, json=payload, auth=(user, password), timeout=timeout_s
+        )
         if r.status_code >= 400:
             return None, f"{r.status_code} {r.reason}: {r.text[:800]}"
         if not r.text.strip():
@@ -71,24 +77,27 @@ def api_post(path: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[Optio
         return None, str(e)
 
 
-def api_post_bundle(bundle: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+def api_post_bundle(
+    bundle: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     return api_post("bundle", bundle)
 
 
-# ----------------------------
-# Tabs
-# ----------------------------
 tab_run, tab_iris = st.tabs(["Run Pipeline", "IRIS Browser"])
 
-# ----------------------------
-# Run Pipeline
-# ----------------------------
 with tab_run:
     st.subheader("1) Generate HL7")
-    c1, c2 = st.columns([1, 2])
+    c1, _ = st.columns([1, 2])
     with c1:
         if st.button("Generate HL7", use_container_width=True):
-            cmd = ["python", "scripts_generate_hl7.py", "--n", str(int(n_messages)), "--out", out_dir]
+            cmd = [
+                "python",
+                "scripts_generate_hl7.py",
+                "--n",
+                str(int(n_messages)),
+                "--out",
+                out_dir,
+            ]
             if per_encounter:
                 cmd.append("--per-encounter")
             rc, out = run_cmd(cmd)
@@ -99,15 +108,21 @@ with tab_run:
                 st.success("HL7 generated.")
 
     st.subheader("2) Convert + PIQI annotate")
-    sam_yaml = Path(config_dir) / "piqi_sam_library.yaml"
-    profile_yaml = Path(config_dir) / "profile_clinical_minimal.yaml"
-    plaus_yaml = Path(config_dir) / "plausibility.yaml"
+    sam_yaml = REPO_ROOT / "piqi_sam_library.yaml"
+    profile_yaml = REPO_ROOT / "profiles" / "profile_clinical_minimal.yaml"
+    plaus_yaml = REPO_ROOT / "ref" / "plausibility.yaml"
 
-    if st.button("Convert + Score (hl7_out_to_piqi)", use_container_width=True):
+    st.caption(
+        "This page uses the same SAM library, Clinical-Minimal profile, and plausibility reference as the main PIQITT page."
+    )
+
+    if st.button("Convert + Score", use_container_width=True):
         cmd = [
             "python",
             "-m",
             "scripts.hl7_out_to_piqi",
+            "--out-dir",
+            out_dir,
             "--sam",
             str(sam_yaml),
             "--profile",
@@ -124,7 +139,9 @@ with tab_run:
 
     st.subheader("3) Send annotated bundles to IRIS")
     annotated_path = Path(out_dir) / "fhir_bundles_annotated.ndjson"
-    limit = st.number_input("How many bundles to send", min_value=1, max_value=500, value=5)
+    limit = st.number_input(
+        "How many bundles to send", min_value=1, max_value=500, value=5
+    )
 
     if st.button("POST to IRIS", use_container_width=True):
         if not annotated_path.exists():
@@ -149,9 +166,6 @@ with tab_run:
                         st.write(resp)
             st.success(f"Done. sent={sent} ok={ok} failed={sent-ok}")
 
-# ----------------------------
-# IRIS Browser
-# ----------------------------
 with tab_iris:
     st.subheader("Stored Bundles (IRIS)")
 
@@ -162,7 +176,9 @@ with tab_iris:
             st.session_state.pop("bundle_list", None)
 
     with cbtn2:
-        if st.button("Wipe IRIS Demo Data", type="secondary", use_container_width=True):
+        if st.button(
+            "Wipe IRIS Demo Data", type="secondary", use_container_width=True
+        ):
             resp, err = api_post("wipe")
             if err:
                 st.error(err)
@@ -171,7 +187,9 @@ with tab_iris:
                 st.session_state.pop("bundle_list", None)
 
     with cbtn3:
-        st.caption("Wipe clears the demo global (^PIQITT). Use when rerunning the pipeline for a clean demo.")
+        st.caption(
+            "Wipe clears the demo global (^PIQITT). Use when rerunning the pipeline for a clean demo."
+        )
 
     if "bundle_list" not in st.session_state:
         data, err = api_get("bundles")
@@ -185,11 +203,15 @@ with tab_iris:
         items = data.get("items", [])
         st.caption(f"Count: {data.get('count', len(items))}")
 
-        items_sorted = sorted(items, key=lambda x: x.get("storedAt", ""), reverse=True)
+        items_sorted = sorted(
+            items, key=lambda x: x.get("storedAt", ""), reverse=True
+        )
         st.dataframe(items_sorted, use_container_width=True, hide_index=True)
 
         st.markdown("### View one bundle")
-        bundle_id = st.text_input("Bundle ID", value=(items_sorted[0]["id"] if items_sorted else ""))
+        bundle_id = st.text_input(
+            "Bundle ID", value=(items_sorted[0]["id"] if items_sorted else "")
+        )
         if st.button("Fetch bundle JSON"):
             if bundle_id:
                 bundle, err = api_get(f"bundle/{bundle_id}")
